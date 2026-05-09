@@ -26,5 +26,5 @@ To run the Dijkstra program:
 ```
 Example:
 ```bash
-./dijkstra OSProject/input_sample.txt
+./dijkstra input_sample.txt
 ```

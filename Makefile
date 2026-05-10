@@ -9,7 +9,7 @@ milestone2: sim.c
 	$(CC) $(CFLAGS) sim.c -o sim $(LDFLAGS)
 
 
-milestone3: $(OSPROJECT_DIR)/sim.c
+milestone3: sim.c
 	$(CC) $(CFLAGS) sim.c -o sim $(LDFLAGS)
 
 clean:

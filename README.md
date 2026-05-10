@@ -1,7 +1,7 @@
 # Traffic Simulation in a Directed Graph
 
 ## Group Members
-- Student Name: Ahmad Abu Kteash
+- Name: Ahmad Abu Kteash
 
 ## Description
 This project is a traffic simulation system in a directed graph. It involves multiple processes (passengers) moving across the graph using OS concepts like IPC, synchronization, and scheduling.

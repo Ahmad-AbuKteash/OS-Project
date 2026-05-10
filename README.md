@@ -53,3 +53,36 @@ Example:
 ./sim input_sample.txt
 ```
 
+
+## Milestone 3: Movement Animation on the Graph
+### Description
+In this milestone, we added animation to represent entities moving along the shortest path.
+- **Pathfinding**: Integrated Dijkstra's algorithm to calculate the shortest path from source to destination.
+- **Animation Control**: Added a "PLAY/STOP" button to control the simulation.
+- **Movement Logic**:
+    - **Edge Travel**: Entities jump across edges based on their weight (300ms per unit of weight).
+    - **Node Waiting**: Entities wait for 1 second at each intermediate node.
+- **Visual Feedback**:
+    - Highlighted source (Green) and destination (Red) nodes.
+    - Highlighted the shortest path in Blue.
+    - Displayed a success message upon reaching the destination.
+- **Improved Robustness**:
+    - Added detection and visual reporting for negative weights.
+    - Added detection and visual reporting for cases where source equals destination.
+    - Simplified edge rendering and motion logic by focusing on straight-line paths.
+
+### Compilation
+To compile Milestone 3, run:
+```bash
+make milestone3
+```
+
+### Execution
+To run the simulation program:
+```bash
+./sim <file_name>
+```
+Example:
+```bash
+./sim input_sample.txt
+```

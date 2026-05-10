@@ -28,3 +28,28 @@ Example:
 ```bash
 ./dijkstra input_sample.txt
 ```
+
+## Milestone 2: Graphical Interface – Displaying the Graph
+### Description
+In this milestone, we implemented the graphical visualization of the graph using the `raylib` library.
+- Nodes are displayed as circles with their IDs.
+- Edges are displayed as arrows pointing from source to destination.
+- Weights are displayed along the edges.
+- A circular layout is used to distribute nodes evenly and avoid overlapping.
+
+### Compilation
+To compile Milestone 2, run:
+```bash
+make milestone2
+```
+
+### Execution
+To run the simulation program:
+```bash
+./sim <file_name>
+```
+Example:
+```bash
+./sim input_sample.txt
+```
+

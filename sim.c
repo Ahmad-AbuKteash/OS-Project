@@ -146,8 +146,18 @@ int main(int argc, char* argv[]) {
                 char weightText[10];
                 sprintf(weightText, "%d", temp->weight);
                 Vector2 midPoint = { (start.x + end.x) / 2, (start.y + end.y) / 2 };
-                // Offset weight text a bit
-                DrawText(weightText, midPoint.x - 5, midPoint.y + 7, 20, MAROON);
+                
+                // Calculate normal vector to the edge for offset
+                float dx = end.x - start.x;
+                float dy = end.y - start.y;
+                float length = sqrtf(dx*dx + dy*dy);
+                Vector2 normal = { -dy/length, dx/length };
+                
+                // Offset weight text along the normal vector to avoid overlap with the edge
+                float textOffset = 15.0f;
+                Vector2 weightPos = { midPoint.x + normal.x * textOffset, midPoint.y + normal.y * textOffset };
+                
+                DrawText(weightText, weightPos.x - 5, weightPos.y - 10, 20, MAROON);
 
                 temp = temp->next;
             }

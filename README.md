@@ -146,4 +146,32 @@ Example:
 ```bash
 ./sim input_sample.txt
 ```
+## Milestone 6: Synchronizing Access to Nodes
+### Description
+In this milestone, every graph node became a critical section.
+- No more than one traveler may be inside the same node at the same time.
+- A traveler that reaches a busy node waits outside it.
+- The GUI draws waiting travelers outside the node with a different outline.
+- When the node becomes available, one waiting traveler enters and waits inside for one full second.
+
+### Synchronization Mechanism
+The implementation uses named POSIX semaphores, one semaphore per graph node. Each semaphore is initialized to `1`, so a child process must call `sem_wait()` before entering a node and `sem_post()` after finishing the one-second stay. This makes the node stay a critical section across processes and prevents simultaneous entry.
+
+The GUI also keeps parent-side node occupancy state that mirrors the same rule visually. This prevents the display from ever showing more than one traveler inside the same node.
+
+### Compilation
+To compile Milestone 6, run:
+```bash
+make milestone6
+```
+
+### Execution
+To run the simulation program:
+```bash
+./sim <file_name>
+```
+Example:
+```bash
+./sim input_sample.txt
+```
 

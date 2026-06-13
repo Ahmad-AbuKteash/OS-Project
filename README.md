@@ -118,3 +118,32 @@ Example:
 ```bash
 ./sim input_sample.txt
 ```
+
+
+## Milestone 5: Inter-Process Communication (IPC)
+### Description
+In this milestone, child processes became autonomous travelers.
+- Each child calculates its own shortest path using Dijkstra's algorithm.
+- Each child sends route status messages to the parent through its own pipe.
+- The parent uses non-blocking reads so the `raylib` GUI loop keeps running while it receives child updates.
+- Only the parent prints progress logs to the terminal.
+
+### IPC Mechanism
+The implementation uses UNIX pipes created with `pipe()`. Each traveler has one private child-to-parent pipe. This fits the project because messages are small, ordered per child, and one-directional.
+
+### Compilation
+To compile Milestone 5, run:
+```bash
+make milestone5
+```
+
+### Execution
+To run the simulation program:
+```bash
+./sim <file_name>
+```
+Example:
+```bash
+./sim input_sample.txt
+```
+

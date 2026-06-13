@@ -86,3 +86,35 @@ Example:
 ```bash
 ./sim input_sample.txt
 ```
+
+## Milestone 4: Multiple Processes and Parent Process
+### Description
+In this milestone, we extended the simulation to support multiple travelers moving simultaneously using process management.
+- **Extended Input**: The input file now includes the number of travelers and a source/destination pair for each one.
+- **Parent Process**:
+    - Reads the file and calculates the Dijkstra path for each traveler.
+    - Creates child processes using `fork()`.
+    - Manages the `raylib` GUI loop and displays all travelers on the screen.
+    - Each traveler is represented by a different color.
+    - Sends a termination signal to each child when its trip finishes.
+    - Waits for all children before exiting.
+- **Child Processes**:
+    - Print `[PID] started` to the terminal immediately after creation.
+    - Sleep until the parent terminates them at the end of their trip.
+- **Parallel Animation**: All travelers move simultaneously on the graph when PLAY is pressed.
+
+### Compilation
+To compile Milestone 4, run:
+```bash
+make milestone4
+```
+
+### Execution
+To run the simulation program:
+```bash
+./sim <file_name>
+```
+Example:
+```bash
+./sim input_sample.txt
+```

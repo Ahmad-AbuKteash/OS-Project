@@ -175,3 +175,47 @@ Example:
 ./sim input_sample.txt
 ```
 
+
+## Milestone 7: Scheduling Algorithms
+### Description
+In this final milestone, we replaced the random order of node entry with formal scheduling algorithms. When multiple travelers wait at a node's entrance, the parent process determines their entry order based on the chosen scheduler.
+
+### Implemented Algorithms
+1. **First-Come, First-Served (FCFS)**: Travelers enter the node in the exact order they arrived at the waiting area.
+2. **Shortest Job First (SJF) / Priority**: Travelers enter based on a priority value assigned in the input file. In this implementation, a lower priority value (e.g., 1 vs 10) allows earlier entry. If priorities are equal, it falls back to FCFS.
+
+### Technical Implementation
+- The parent process manages a 'waiting queue' for each node.
+- When a traveler reaches a node, it is added to the node's queue with an arrival timestamp and its priority.
+- The scheduler (FCFS or SJF) selects the next traveler from the queue whenever the node becomes available.
+- The choice of algorithm is passed as a command-line argument.
+
+### Comparison of Algorithms
+- **FCFS**: Ensures fairness based on arrival time. Travelers who arrive first are never bypassed. However, "shorter" tasks might wait behind "longer" ones.
+- **SJF**: Can reduce average waiting time by allowing high-priority or shorter tasks to pass first. In our simulation, using SJF allows travelers with lower priority values to bypass others, which can be useful for urgent travelers.
+
+### Compilation
+To compile Milestone 7, run:
+```bash
+make milestone7
+```
+
+### Execution
+To run the simulation program with a specific scheduler:
+```bash
+./sim-schd fcfs <file_name>
+./sim-schd sjf <file_name>
+```
+Example:
+```bash
+./sim-schd sjf test_milestone7.txt
+```
+
+### Input File Format for Milestone 7
+The traveler data now supports an optional priority value:
+```
+<num_travelers>
+<src> <dest> <priority>
+...
+```
+If priority is not provided, it defaults to 0.

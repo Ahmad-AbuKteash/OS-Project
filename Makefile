@@ -24,5 +24,8 @@ milestone5: sim.c
 milestone6: sim.c
 	$(CC) $(CFLAGS) sim.c -o sim $(LDFLAGS)
 
+milestone7: sim.c
+	$(CC) $(CFLAGS) sim.c -o sim-schd $(LDFLAGS)
+
 clean:
 	rm -f dijkstra sim

@@ -20,8 +20,15 @@ extern int XCloseDisplay(Display* display);
 
 #define INF INT_MAX
 #define MAX_TRAVELERS 15
+#define MAX_NODES 100
+#define MAX_WAITING MAX_TRAVELERS
 #define SEM_NAME_LEN 64
 #define GUI_NODE_EMPTY_DELAY 0.7
+
+typedef enum {
+    SCHED_FCFS,
+    SCHED_SJF
+} SchedAlgo;
 
 /*
  * IPC Choice: Pipes (pipe())
@@ -101,11 +108,16 @@ typedef struct {
     // Path computed by parent for GUI animation
     int* path;
     int  pathLen;
+    int arrivalOrder;      // for FCFS
+    int priority;          // for SJF
+    double arrivalTime;    // when they started waiting
 } Traveler;
 
 typedef struct {
     int occupantTraveler;
     double availableTime;
+    int waitingQueue[MAX_WAITING];
+    int queueSize;
 } GuiNodeLock;
 
 void runChild(int startNode, int endNode, int writeFd, Graph* graph, sem_t** nodeSemaphores);
@@ -559,15 +571,79 @@ void beginEdgeTravel(Traveler* traveler, Graph* graph, double currentTime) {
 }
 
 bool tryEnterGuiNode(Traveler* traveler, int travelerIndex, GuiNodeLock* nodeLocks,
-                     NodePos* nodePositions, int node, double currentTime) {
+                     NodePos* nodePositions, int node, double currentTime, SchedAlgo algo, Traveler* allTravelers) {
+    // If not already in the waiting queue, add it
+    bool alreadyInQueue = false;
+    for (int i = 0; i < nodeLocks[node].queueSize; i++) {
+        if (nodeLocks[node].waitingQueue[i] == travelerIndex) {
+            alreadyInQueue = true;
+            break;
+        }
+    }
+    if (!alreadyInQueue && traveler->state != STATE_WAITING_NODE) {
+        if (nodeLocks[node].queueSize < MAX_WAITING) {
+            nodeLocks[node].waitingQueue[nodeLocks[node].queueSize++] = travelerIndex;
+            static int globalArrivalCounter = 0;
+            // Reset counter if it's a fresh simulation start?
+            // Actually, we can just use the current time for arrivalOrder if we want it perfect,
+            // but let's keep it simple.
+            traveler->arrivalOrder = globalArrivalCounter++;
+            traveler->arrivalTime = currentTime;
+        }
+    }
+
+    // Check if it's the current traveler's turn according to the scheduler
     if (nodeLocks[node].occupantTraveler == -1 &&
-        currentTime >= nodeLocks[node].availableTime) {
-        nodeLocks[node].occupantTraveler = travelerIndex;
-        traveler->state = STATE_WAITING_NODE;
-        traveler->waitingForNode = node;
-        traveler->position = nodePositions[node].position;
-        traveler->lastUpdateTime = currentTime;
-        return true;
+        currentTime >= nodeLocks[node].availableTime &&
+        nodeLocks[node].queueSize > 0) {
+        
+        int bestCandidateIndex = -1;
+        int bestIdxInQueue = -1;
+
+        if (algo == SCHED_FCFS) {
+            // FCFS: Traveler who arrived first (lowest arrivalOrder)
+            int minOrder = INT_MAX;
+            for (int i = 0; i < nodeLocks[node].queueSize; i++) {
+                int tIdx = nodeLocks[node].waitingQueue[i];
+                if (allTravelers[tIdx].arrivalOrder < minOrder) {
+                    minOrder = allTravelers[tIdx].arrivalOrder;
+                    bestCandidateIndex = tIdx;
+                    bestIdxInQueue = i;
+                }
+            }
+        } else if (algo == SCHED_SJF) {
+            // SJF: Traveler with lowest priority value (lower value = shorter/higher priority)
+            int minPriority = INT_MAX;
+            for (int i = 0; i < nodeLocks[node].queueSize; i++) {
+                int tIdx = nodeLocks[node].waitingQueue[i];
+                if (allTravelers[tIdx].priority < minPriority) {
+                    minPriority = allTravelers[tIdx].priority;
+                    bestCandidateIndex = tIdx;
+                    bestIdxInQueue = i;
+                } else if (allTravelers[tIdx].priority == minPriority) {
+                    // Tie-breaker: FCFS
+                    if (allTravelers[tIdx].arrivalOrder < allTravelers[bestCandidateIndex].arrivalOrder) {
+                        bestCandidateIndex = tIdx;
+                        bestIdxInQueue = i;
+                    }
+                }
+            }
+        }
+
+        if (bestCandidateIndex == travelerIndex) {
+            nodeLocks[node].occupantTraveler = travelerIndex;
+            // Remove from queue
+            for (int i = bestIdxInQueue; i < nodeLocks[node].queueSize - 1; i++) {
+                nodeLocks[node].waitingQueue[i] = nodeLocks[node].waitingQueue[i+1];
+            }
+            nodeLocks[node].queueSize--;
+
+            traveler->state = STATE_WAITING_NODE;
+            traveler->waitingForNode = node;
+            traveler->position = nodePositions[node].position;
+            traveler->lastUpdateTime = currentTime;
+            return true;
+        }
     }
 
     traveler->state = STATE_WAITING_OUTSIDE;
@@ -588,18 +664,18 @@ void releaseGuiNode(Traveler* traveler, int travelerIndex, GuiNodeLock* nodeLock
 
 void updateTraveler(Traveler* traveler, int travelerIndex, Graph* graph,
                     NodePos* nodePositions, GuiNodeLock* nodeLocks,
-                    bool isPlaying, double currentTime) {
+                    bool isPlaying, double currentTime, SchedAlgo algo, Traveler* allTravelers) {
     if (!isPlaying || traveler->finished || traveler->pathLen <= 0) return;
 
     if (traveler->state == STATE_IDLE) {
         int currentNode = traveler->path[traveler->currentPathIndex];
         tryEnterGuiNode(traveler, travelerIndex, nodeLocks, nodePositions,
-                        currentNode, currentTime);
+                        currentNode, currentTime, algo, allTravelers);
 
     } else if (traveler->state == STATE_WAITING_OUTSIDE) {
         int node = traveler->waitingForNode;
         tryEnterGuiNode(traveler, travelerIndex, nodeLocks, nodePositions,
-                        node, currentTime);
+                        node, currentTime, algo, allTravelers);
 
     } else if (traveler->state == STATE_WAITING_NODE) {
         if (currentTime - traveler->lastUpdateTime >= 1.0) {
@@ -631,7 +707,7 @@ void updateTraveler(Traveler* traveler, int travelerIndex, Graph* graph,
                 traveler->currentPathIndex++;
                 int arrivedNode = traveler->path[traveler->currentPathIndex];
                 tryEnterGuiNode(traveler, travelerIndex, nodeLocks, nodePositions,
-                                arrivedNode, currentTime);
+                                arrivedNode, currentTime, algo, allTravelers);
             }
         }
     }
@@ -654,13 +730,29 @@ void resetTraveler(Traveler* traveler, NodePos* nodePositions) {
 // ─── main ─────────────────────────────────────────────────────────────────────
 
 int main(int argc, char* argv[]) {
+    SchedAlgo algo = SCHED_FCFS;
+    char* filename = NULL;
+
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <file_name>\n", argv[0]);
+        fprintf(stderr, "Usage: %s [fcfs|sjf] <file_name>\n", argv[0]);
         return 1;
     }
 
+    if (argc == 2) {
+        filename = argv[1];
+    } else {
+        if (strcmp(argv[1], "fcfs") == 0) {
+            algo = SCHED_FCFS;
+        } else if (strcmp(argv[1], "sjf") == 0) {
+            algo = SCHED_SJF;
+        } else {
+            fprintf(stderr, "Unknown algorithm: %s. Defaulting to FCFS.\n", argv[1]);
+        }
+        filename = argv[2];
+    }
+
     // ── Read graph file ──────────────────────────────────────────────────────
-    FILE* file = fopen(argv[1], "r");
+    FILE* file = fopen(filename, "r");
     if (!file) { perror("Error opening file"); return 1; }
 
     int N, M;
@@ -688,13 +780,15 @@ int main(int argc, char* argv[]) {
     if (!travelers) { fclose(file); freeGraph(graph); return 1; }
 
     for (int i = 0; i < numTravelers; i++) {
-        int startNode, endNode;
-        if (fscanf(file, "%d %d", &startNode, &endNode) != 2) {
+        int startNode, endNode, priority = 0;
+        int readCount = fscanf(file, "%d %d %d", &startNode, &endNode, &priority);
+        if (readCount < 2) {
             fprintf(stderr, "Invalid traveler data\n");
             fclose(file); freeGraph(graph); free(travelers); return 1;
         }
         travelers[i].startNode       = startNode;
         travelers[i].endNode         = endNode;
+        travelers[i].priority        = priority;
         travelers[i].color           = TRAVELER_COLORS[i % (sizeof(TRAVELER_COLORS) / sizeof(TRAVELER_COLORS[0]))];
         travelers[i].pid             = -1;
         travelers[i].childTerminated = false;
@@ -809,7 +903,7 @@ int main(int argc, char* argv[]) {
     SetTargetFPS(60);
 
     NodePos* nodePositions = (NodePos*)malloc(N * sizeof(NodePos));
-    GuiNodeLock* nodeLocks = (GuiNodeLock*)malloc(N * sizeof(GuiNodeLock));
+    GuiNodeLock* nodeLocks = (GuiNodeLock*)calloc(N, sizeof(GuiNodeLock));
     if (!nodePositions || !nodeLocks) {
         CloseWindow();
         for (int i = 0; i < numTravelers; i++) {
@@ -875,6 +969,8 @@ int main(int argc, char* argv[]) {
                     for (int i = 0; i < N; i++) {
                         nodeLocks[i].occupantTraveler = -1;
                         nodeLocks[i].availableTime = 0.0;
+                        nodeLocks[i].queueSize = 0;
+                        memset(nodeLocks[i].waitingQueue, 0, sizeof(nodeLocks[i].waitingQueue));
                     }
                     for (int i = 0; i < numTravelers; i++)
                         resetTraveler(&travelers[i], nodePositions);
@@ -945,7 +1041,7 @@ int main(int argc, char* argv[]) {
         if (isPlaying) {
             for (int i = 0; i < numTravelers; i++)
                 updateTraveler(&travelers[i], i, graph, nodePositions, nodeLocks,
-                               isPlaying, currentTime);
+                               isPlaying, currentTime, algo, travelers);
 
             if (allAnimatableFinished(travelers, numTravelers))
                 isPlaying = false;
@@ -1033,8 +1129,12 @@ int main(int argc, char* argv[]) {
         // ── HUD ───────────────────────────────────────────────────────────────
         char infoText[32];
         sprintf(infoText, "Travelers: %d", numTravelers);
-        DrawText("Milestone 6: Node Semaphores", 10, 10, 20, DARKBLUE);
+        char algoText[32];
+        sprintf(algoText, "Algo: %s", (algo == SCHED_FCFS) ? "FCFS" : "SJF");
+        
+        DrawText("Milestone 7: Scheduling", 10, 10, 20, DARKBLUE);
         DrawText(infoText, 10, 32, 18, DARKGRAY);
+        DrawText(algoText, 10, 52, 18, DARKPURPLE);
 
         DrawRectangleRec(playBtn, isPlaying ? RED : LIME);
         DrawText(isPlaying ? "STOP" : "PLAY", playBtn.x + 25, playBtn.y + 10, 20, BLACK);
